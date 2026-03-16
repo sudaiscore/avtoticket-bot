@@ -1,0 +1,58 @@
+name: Ticket Check
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repo ni checkout qilish
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Python 3.12 o‘rnatish
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Kutubxonalarni o‘rnatish
+        run: pip install -r requirements.txt
+
+      - name: state.json mavjudligini tayyorlash
+        run: |
+          if [ ! -f state.json ]; then
+            echo "{}" > state.json
+          fi
+
+      - name: Ticket checker ni ishga tushirish
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TARGET_URL: ${{ secrets.TARGET_URL }}
+          CHECK_INTERVAL: "180"
+          TEST_MODE: "false"
+          NOTIFY_ON_STARTUP: "false"
+          TARGET_ORIGIN_KEYWORDS: ${{ secrets.TARGET_ORIGIN_KEYWORDS }}
+          TARGET_DESTINATION_KEYWORDS: ${{ secrets.TARGET_DESTINATION_KEYWORDS }}
+          REQUIRE_ALL_ROUTE_KEYWORDS: "true"
+          MAX_MESSAGE_TRIPS: "10"
+          SEND_ERROR_ALERTS: "false"
+          LOG_NO_CHANGE_AS_INFO: "true"
+          MIN_CONFIDENCE: "0.70"
+        run: python run_ticket_check.py
+
+      - name: state.json o‘zgargan bo‘lsa commit qilish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git diff --cached --quiet || git commit -m "Update ticket state"
+          git push
